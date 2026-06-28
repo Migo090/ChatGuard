@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AcmeCorp — Customer Portal</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --accent: #6366f1;
+    --accent-dark: #4f46e5;
+    --border: #e2e8f0;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --danger-border: #fecaca;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+    --warn-border: #fde68a;
+    --ok: #16a34a;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-lg: 0 10px 40px rgba(15,23,42,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top nav ─────────────────────────────────────── */
+  nav {
+    background: rgba(255,255,255,.85);
+    backdrop-filter: saturate(180%) blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem; height: 3.75rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .nav-brand {
+    font-weight: 800; font-size: 1.15rem; color: var(--accent);
+    display: flex; align-items: center; gap: .5rem; letter-spacing: -.01em;
+  }
+  .nav-brand .logo {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #818cf8);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: .9rem; font-weight: 800;
+  }
+  .nav-links { display: flex; gap: 1.75rem; font-size: .9rem; color: var(--muted); align-items: center; }
+  .nav-links span { cursor: pointer; transition: color .15s; }
+  .nav-links span:hover { color: var(--text); }
+  .nav-links .nav-cta {
+    background: var(--accent); color: #fff; padding: .45rem 1rem;
+    border-radius: 8px; font-weight: 600;
+  }
+  .nav-links .nav-cta:hover { background: var(--accent-dark); color: #fff; }
+
+  /* ── Demo ribbon ─────────────────────────────────── */
+  .demo-ribbon {
+    background: linear-gradient(90deg, #1e293b, #334155);
+    color: #e2e8f0; text-align: center; font-size: .8rem;
+    padding: .5rem 1rem; letter-spacing: .02em;
+  }
+  .demo-ribbon strong { color: #fff; }
+  .demo-ribbon code {
+    background: rgba(255,255,255,.12); padding: .1rem .4rem;
+    border-radius: 5px; font-size: .78rem; color: #fff;
+  }
+
+  /* ── Hero ────────────────────────────────────────── */
+  .hero {
+    max-width: 880px; margin: 4.5rem auto 3rem; padding: 0 2rem; text-align: center;
+  }
+  .hero .eyebrow {
+    display: inline-block; font-size: .8rem; font-weight: 600;
+    color: var(--accent-dark); background: #eef2ff; padding: .3rem .85rem;
+    border-radius: 999px; margin-bottom: 1.25rem; letter-spacing: .02em;
+  }
+  .hero h1 {
+    font-size: 2.85rem; font-weight: 800; margin-bottom: 1rem;
+    letter-spacing: -.03em; line-height: 1.1;
+    background: linear-gradient(135deg, #1e293b, #4f46e5);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p { color: var(--muted); font-size: 1.15rem; max-width: 540px; margin: 0 auto 2rem; }
+  .hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    border-radius: 10px; padding: .7rem 1.6rem; font-size: .95rem;
+    font-weight: 600; cursor: pointer; border: none; transition: transform .12s, box-shadow .12s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 18px rgba(99,102,241,.35); }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-outline { background: var(--surface); color: var(--accent-dark); border: 1.5px solid var(--border); }
+  .btn-outline:hover { border-color: var(--accent); }
+
+  /* ── Security status panel (the visible vuln state) ─ */
+  .status-wrap { max-width: 880px; margin: 0 auto 3.5rem; padding: 0 2rem; }
+  .status-card {
+    background: var(--danger-bg); border: 1px solid var(--danger-border);
+    border-left: 5px solid var(--danger); border-radius: var(--radius);
+    padding: 1.5rem 1.75rem; box-shadow: var(--shadow);
+  }
+  .status-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+  .status-badge {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: var(--danger); color: #fff; font-weight: 700; font-size: .8rem;
+    padding: .3rem .75rem; border-radius: 999px; letter-spacing: .03em;
+  }
+  .status-head h2 { font-size: 1.1rem; font-weight: 700; color: #991b1b; }
+  .status-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .75rem; margin-top: .25rem;
+  }
+  .status-item {
+    background: var(--surface); border: 1px solid var(--danger-border);
+    border-radius: 9px; padding: .8rem .9rem;
+  }
+  .status-item .k { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  .status-item .v { font-size: .9rem; font-weight: 600; margin-top: .2rem; word-break: break-all; }
+  .status-item .v code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .85rem; }
+  .v.bad { color: var(--danger); }
+  .v.ok  { color: var(--ok); }
+  .status-foot {
+    margin-top: 1.1rem; font-size: .85rem; color: #7f1d1d;
+    display: flex; align-items: flex-start; gap: .5rem;
+  }
+
+  /* ── Feature cards (portal credibility) ──────────── */
+  .features {
+    max-width: 980px; margin: 0 auto 4rem; padding: 0 2rem;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem;
+  }
+  .feature {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.4rem; box-shadow: var(--shadow);
+  }
+  .feature .ico {
+    width: 40px; height: 40px; border-radius: 10px; background: #eef2ff;
+    display: flex; align-items: center; justify-content: center; font-size: 1.25rem; margin-bottom: .9rem;
+  }
+  .feature h3 { font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+  .feature p { font-size: .9rem; color: var(--muted); }
+
+  footer {
+    border-top: 1px solid var(--border); background: var(--surface);
+    padding: 1.5rem 2rem; text-align: center; color: var(--muted); font-size: .85rem;
+  }
+
+  /* ── Chat widget ─────────────────────────────────── */
+  #chat-btn {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border: none;
+    box-shadow: 0 8px 28px rgba(99,102,241,.55);
+    cursor: pointer; font-size: 1.6rem; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s; z-index: 60;
+  }
+  #chat-btn:hover { transform: scale(1.08) rotate(-4deg); }
+  #chat-panel {
+    display: none;
+    position: fixed; bottom: 5.5rem; right: 1.5rem;
+    width: 340px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--shadow-lg); overflow: hidden; font-size: .9rem; z-index: 60;
+  }
+  #chat-panel.open { display: block; animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+  .chat-hd {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff; padding: 1rem 1.1rem; display: flex; justify-content: space-between; align-items: center;
+  }
+  .chat-hd .title { font-weight: 700; }
+  .chat-hd .sub { font-size: .75rem; opacity: .85; font-weight: 400; }
+  .chat-hd .close { background: none; border: none; color: #fff; cursor: pointer; font-size: 1.15rem; line-height: 1; }
+  .chat-body { padding: 1.1rem; min-height: 150px; color: #475569; line-height: 1.6; }
+  .chat-msg {
+    background: #f1f5f9; border-radius: 12px 12px 12px 4px;
+    padding: .65rem .85rem; display: inline-block; margin-bottom: .75rem;
+  }
+  .chat-note {
+    background: var(--warn-bg); border: 1px solid var(--warn-border);
+    border-radius: 9px; padding: .65rem .8rem; font-size: .8rem; color: var(--warn); margin-top: .5rem;
+  }
+  .chat-note code { background: rgba(180,83,9,.12); padding: .05rem .3rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="demo-ribbon">
+  🎯 <strong>ChatGuard Demo Target</strong> — offline, no external calls. Simulated Intercom widget with app_id <code>cgdemo01</code> and <strong>no Identity Verification</strong>.
+</div>
+
+<nav>
+  <div class="nav-brand"><span class="logo">A</span> AcmeCorp</div>
+  <div class="nav-links">
+    <span>Products</span>
+    <span>Pricing</span>
+    <span>Docs</span>
+    <span class="nav-cta">Sign in</span>
+  </div>
+</nav>
+
+<div class="hero">
+  <span class="eyebrow">Customer Support Portal</span>
+  <h1>Welcome to AcmeCorp</h1>
+  <p>A realistic demo target for ChatGuard. This page ships a live-looking support widget that is <strong>intentionally misconfigured</strong> for scanning.</p>
+  <div class="hero-btns">
+    <button class="btn btn-primary">Get Started</button>
+    <button class="btn btn-outline">View Documentation</button>
+  </div>
+</div>
+
+<!-- ══ Visible vulnerability state — the missing-HMAC condition ChatGuard detects ══ -->
+<div class="status-wrap">
+  <div class="status-card" role="region" aria-label="Widget security status">
+    <div class="status-head">
+      <span class="status-badge">⚠ VULNERABLE</span>
+      <h2>Chat widget identity verification is NOT enabled</h2>
+    </div>
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="k">Vendor</div>
+        <div class="v">Intercom Messenger</div>
+      </div>
+      <div class="status-item">
+        <div class="k">Exposed app_id</div>
+        <div class="v bad"><code>cgdemo01</code></div>
+      </div>
+      <div class="status-item">
+        <div class="k">Identity Verification (HMAC)</div>
+        <div class="v bad">✗ Missing <code>user_hash</code></div>
+      </div>
+      <div class="status-item">
+        <div class="k">IDOR exposure</div>
+        <div class="v bad">✗ Conversations unprotected</div>
+      </div>
+    </div>
+    <div class="status-foot">
+      <span>🔓</span>
+      <span>Because the boot call ships <code>app_id</code> without a server-signed <code>user_hash</code>, any client can impersonate a user_id or email against <code>api-iam.intercom.io</code>. ChatGuard flags this as findings <strong>A01</strong> &amp; <strong>A02</strong>.</span>
+    </div>
+  </div>
+</div>
+
+<div class="features">
+  <div class="feature">
+    <div class="ico">📦</div>
+    <h3>Order Tracking</h3>
+    <p>Customers check shipment status and manage returns directly from the portal.</p>
+  </div>
+  <div class="feature">
+    <div class="ico">💬</div>
+    <h3>Live Support</h3>
+    <p>An embedded Intercom messenger connects users to the AcmeCorp support team.</p>
+  </div>
+  <div class="feature">
+    <div class="ico">🔐</div>
+    <h3>Account Settings</h3>
+    <p>Profile, billing, and notification preferences — all behind the chat widget.</p>
+  </div>
+</div>
+
+<footer>
+  © 2026 AcmeCorp, Inc. · This is a ChatGuard demo target. No real data and no outbound network calls.
+</footer>
+
+<!-- ══ DELIBERATELY MISCONFIGURED INTERCOM WIDGET ══
+     app_id exposed in JS, no user_hash → IDOR vulnerable.
+     This is the exact pattern ChatGuard extracts and flags. -->
+<script>
+  // Simulated Intercom boot call — providerKey exposed, no user_hash
+  (function() {
+    var w = window;
+    var ic = w.Intercom;
+    if (typeof ic === 'function') {
+      ic('reattach_activator');
+      ic('update', w.intercomSettings);
+    } else {
+      var d = document;
+      var i = function() { i.c(arguments); };
+      i.q = []; i.c = function(args) { i.q.push(args); };
+      w.Intercom = i;
+    }
+    // Vulnerable: app_id exposed, no user_hash / identity_verification
+    w.intercomSettings = {
+      api_base: 'https://api-iam.intercom.io',
+      app_id: 'cgdemo01',            // ChatGuard will extract this
+      name: 'Demo User',
+      email: 'demo@acmecorp.io'
+      // user_hash: '...'             // MISSING — no Identity Verification (HMAC)
+    };
+  })();
+</script>
+
+<!-- Fake chat widget UI (no real network calls) -->
+<button id="chat-btn" onclick="document.getElementById('chat-panel').classList.toggle('open')" title="Chat with us">
+  💬
+</button>
+
+<div id="chat-panel">
+  <div class="chat-hd">
+    <div>
+      <div class="title">AcmeCorp Support</div>
+      <div class="sub">Powered by Intercom · typically replies instantly</div>
+    </div>
+    <button class="close" onclick="document.getElementById('chat-panel').classList.remove('open')" title="Close">✕</button>
+  </div>
+  <div class="chat-body">
+    <div class="chat-msg">👋 Hi there! How can we help you today?</div>
+    <div class="chat-note">
+      ⚠ <strong>Demo target.</strong> The <code>app_id</code> on this page is intentionally exposed with no <code>user_hash</code> HMAC — the misconfiguration ChatGuard detects.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
