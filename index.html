@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  Content-Security-Policy: scripts and styles load only from this origin
+  (no inline <script>, no CDN). connect-src stays open because the scanner
+  legitimately fetches the Intercom / Pylon widget APIs and CORS proxies.
+  style-src allows 'unsafe-inline' for the inline style attributes used
+  throughout the demo UI. base-uri/object-src locked down to shrink the
+  XSS blast radius.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src *; frame-src 'self' demo/; base-uri 'none'; object-src 'none'">
+<title>ChatGuard — Chat Widget Security Scanner</title>
+<link rel="stylesheet" href="css/main.css?v=8">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     Intro splash / loading screen + team page.
+     Shown on initial load, fades out after the simulated
+     "signature initialization" delay (wired in events.js
+     to stay CSP-compliant — no inline scripts).
+     ══════════════════════════════════════════════════ -->
+<div id="introSplash" class="intro-splash">
+  <div class="intro-bg" aria-hidden="true"></div>
+
+  <div class="intro-content">
+    <!-- Cyber shield logo (reused from nav, larger) -->
+    <svg class="intro-logo" width="76" height="76" viewBox="0 0 100 100" fill="none"
+         xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="introGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#00e5ff"/>
+          <stop offset="100%" stop-color="#bc8cff"/>
+        </linearGradient>
+      </defs>
+      <path d="M50 5 L85 22.5 V55 C85 75 50 95 50 95 C50 95 15 75 15 55 V22.5 L50 5Z"
+            stroke="url(#introGrad)" stroke-width="4" fill="rgba(0,229,255,0.06)"/>
+      <rect x="32" y="34" width="36" height="4" rx="2" fill="url(#introGrad)" opacity=".95"/>
+      <rect x="38" y="46" width="24" height="4" rx="2" fill="url(#introGrad)" opacity=".75"/>
+      <path d="M42 58 L50 66 L58 58" stroke="url(#introGrad)" stroke-width="3.5"
+            stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+
+    <h1 class="intro-title">Chat Support Integrations Security Scanner</h1>
+    <p class="intro-subtitle">Automated Misconfiguration Detection for Pylon and Intercom</p>
+
+    <!-- Cyber-themed loading animation: scanning radar ring + status line -->
+    <div class="intro-loader" role="status" aria-label="Initializing">
+      <div class="intro-ring">
+        <span class="intro-ring-core"></span>
+      </div>
+      <div class="intro-loadbar"><span class="intro-loadbar-fill"></span></div>
+      <div class="intro-status" id="introStatus">Initializing detection signatures…</div>
+    </div>
+
+    <!-- Team section: two groups -->
+    <div class="intro-team">
+      <div class="intro-team-group">
+        <div class="intro-team-label">Group A</div>
+        <ul class="intro-team-list">
+          <li>Magdy Ali Mohamed Elmalt</li>
+          <li>Hossam Eldin Mostafa Metwaly Abo Zeid</li>
+          <li>Ahmed Mohamed Ramadan Nasr</li>
+        </ul>
+      </div>
+      <div class="intro-team-divider" aria-hidden="true"></div>
+      <div class="intro-team-group">
+        <div class="intro-team-label">Group B</div>
+        <ul class="intro-team-list">
+          <li>Abdelrahman Diaa Mohamed Ahmed</li>
+          <li>Yousef Essam El-Din Abdel-Hay</li>
+          <li>Ashraf Wael Abdelaziz Abdelalem</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<nav>
+  <!-- Brand: logo + wordmark -->
+  <div class="nav-brand">
+    <!-- Cyber shield logo: violet/teal neon palette matching the app's accent colors -->
+    <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"
+         style="flex-shrink:0;filter:drop-shadow(0 0 8px rgba(0,229,255,.45))">
+      <defs>
+        <linearGradient id="cgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#00e5ff"/>   <!-- app --accent cyan -->
+          <stop offset="100%" stop-color="#bc8cff"/>   <!-- app --accent-purple -->
+        </linearGradient>
+        <filter id="cgGlow" x="-25%" y="-25%" width="150%" height="150%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+      </defs>
+      <!-- Shield body -->
+      <path d="M50 5 L85 22.5 V55 C85 75 50 95 50 95 C50 95 15 75 15 55 V22.5 L50 5Z"
+            stroke="url(#cgGrad)" stroke-width="4" fill="rgba(0,229,255,0.06)"
+            filter="url(#cgGlow)"/>
+      <!-- Scan lines: horizontal bars — signal / protection motif -->
+      <rect x="32" y="34" width="36" height="4" rx="2" fill="url(#cgGrad)" opacity=".95"/>
+      <rect x="38" y="46" width="24" height="4" rx="2" fill="url(#cgGrad)" opacity=".75"/>
+      <!-- Chevron pointing down — "drill-down / detect" -->
+      <path d="M42 58 L50 66 L58 58" stroke="url(#cgGrad)" stroke-width="3.5"
+            stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <div class="nav-brand-text">Chat<span>Guard</span></div>
+  </div>
+
+  <!-- Desktop tabs (hidden on mobile via CSS) -->
+  <div class="nav-tabs" id="navTabs">
+    <button class="nav-tab active">Scanner</button>
+    <button class="nav-tab">Inspector</button>
+    <button class="nav-tab">History</button>
+    <button class="nav-tab">Analytics</button>
+    <button class="nav-tab nav-tab-guide">Guide</button>
+    <button class="nav-tab">Settings</button>
+  </div>
+
+  <!-- Hamburger (shown on mobile via CSS) -->
+  <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect y="3"  width="20" height="2" rx="1" fill="currentColor"/>
+      <rect y="9"  width="20" height="2" rx="1" fill="currentColor"/>
+      <rect y="15" width="20" height="2" rx="1" fill="currentColor"/>
+    </svg>
+  </button>
+</nav>
+
+<!-- Mobile drawer — mirrors the nav tabs -->
+<div class="nav-drawer" id="navDrawer">
+  <button class="nav-drawer-tab active">Scanner</button>
+  <button class="nav-drawer-tab">Inspector</button>
+  <button class="nav-drawer-tab">History</button>
+  <button class="nav-drawer-tab">Analytics</button>
+  <button class="nav-drawer-tab">Guide</button>
+  <button class="nav-drawer-tab">Settings</button>
+</div>
+
+<!-- ══════════════════ SCANNER PAGE ══════════════════ -->
+<div id="page-scanner" class="page active">
+  <div class="scanner-layout">
+    <div class="scanner-left-col">
+      <div class="section-title">Target Analysis <span class="tag" id="scanStateTag">IDLE</span></div>
+      <div class="scan-input-group">
+        <input class="scan-input" id="targetUrl" placeholder="https://target-site.com" type="url"/>
+        <button class="btn" id="scanBtn">&#9654; Scan</button>
+        <button class="btn btn-secondary" id="demoBtn">Demo</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div id="findingsContainer">
+        <div class="scan-empty">
+          <svg class="scan-empty-icon" viewBox="0 0 64 64" width="52" height="52" fill="none" aria-hidden="true">
+            <circle class="scan-empty-ring scan-empty-ring--1" cx="27" cy="27" r="22" stroke="currentColor" stroke-width="1.25"/>
+            <circle class="scan-empty-ring scan-empty-ring--2" cx="27" cy="27" r="15" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="27" cy="27" r="8" stroke="currentColor" stroke-width="2"/>
+            <circle cx="27" cy="27" r="2.5" fill="currentColor"/>
+            <line x1="42" y1="42" x2="55" y2="55" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+          </svg>
+          <div class="scan-empty-title">Ready to scan</div>
+          <div class="scan-empty-text">Enter a target URL above and hit <span class="kbd">Scan</span> &mdash; or press <span class="kbd">Enter</span>.</div>
+        </div>
+      </div>
+    </div>
+    <div class="scanner-right-col">
+      <div class="section-title">Scan Log</div>
+      <div class="log-wrapper">
+        <div class="log-term-header">
+          <span class="log-term-dots"><i class="dot red"></i><i class="dot yellow"></i><i class="dot green"></i></span>
+          <span class="log-term-title">scan.log</span>
+          <button class="log-copy-btn" id="logCopyBtn" title="Copy log">⎘ COPY</button>
+        </div>
+        <div class="log-area" id="logArea"></div>
+        <div class="log-footer">
+          <button class="btn btn-sm" id="openInspectorBtn">Open in Inspector</button>
+          <button class="btn btn-sm btn-success" id="generateReportBtn">⬇ Report (.md)</button>
+          <button class="btn btn-sm btn-danger" id="clearScanBtn">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ INSPECTOR PAGE ══════════════════ -->
+<div id="page-inspector" class="page">
+  <div class="section-title">HTTP Request / Response Inspector</div>
+
+  <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-lg);padding:.875rem 1rem;margin-bottom:1rem">
+    <div style="font-size:.6875rem;font-weight:600;color:var(--text-muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:.625rem">&#9998; Live Target Parameters — edit to update templates instantly</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.625rem;align-items:end" id="inspectorParamsGrid">
+      <div>
+        <label style="font-size:.6875rem;color:var(--text-secondary);display:block;margin-bottom:.25rem">
+          app_id <span style="color:var(--vulnerable-red)">*</span>
+          <span id="vendorBadgeLive" style="margin-left:.375rem;font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:3px;display:none"></span>
+        </label>
+        <input class="scan-input" id="liveAppId" placeholder="e.g. ab12cd34 or UUID — auto-filled by scanner" style="font-family:var(--font-mono);font-size:.75rem;width:100%"/>
+      </div>
+      <div id="liveUserIdWrap">
+        <label style="font-size:.6875rem;color:var(--text-secondary);display:block;margin-bottom:.25rem">user_id <span style="color:var(--vulnerable-red)">*</span></label>
+        <input class="scan-input" id="liveUserId" placeholder="e.g. 85070 or UUID" style="font-family:var(--font-mono);font-size:.75rem;width:100%"/>
+      </div>
+      <div id="liveEmailWrap">
+        <label style="font-size:.6875rem;color:var(--text-secondary);display:block;margin-bottom:.25rem">target email <span style="color:var(--vulnerable-red)">*</span></label>
+        <input class="scan-input" id="liveEmail" placeholder="victim@target.com" style="font-family:var(--font-mono);font-size:.75rem;width:100%"/>
+      </div>
+      <div id="wrapIssueId" style="display:none">
+        <label style="font-size:.6875rem;color:var(--text-secondary);display:block;margin-bottom:.25rem">Issue ID <span style="color:var(--warn-amber)">(Pylon)</span></label>
+        <input class="scan-input" id="liveIssueId" placeholder="UUID from Step 1" style="font-family:var(--font-mono);font-size:.6875rem;width:100%"/>
+      </div>
+      <div id="wrapBlocks" style="grid-column:1/-1">
+        <label style="font-size:.6875rem;color:var(--text-secondary);display:block;margin-bottom:.25rem">blocks payload <span style="color:var(--text-muted)">(Intercom)</span></label>
+        <input class="scan-input" id="liveBlocks" value='[{"type":"paragraph","text":"ChatGuard_Test"}]' style="font-family:var(--font-mono);font-size:.6875rem;width:100%"/>
+      </div>
+    </div>
+    <div style="margin-top:.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.375rem">
+      <div style="font-size:.6875rem;color:var(--text-muted)">
+        &#9432; Paste the real <code style="color:var(--accent);background:var(--bg-tertiary);padding:.1rem .3rem;border-radius:3px">app_id</code> from target page source, or run a scan — it auto-fills here. Templates update live.
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span id="inspectorSecBadge" style="display:none"></span>
+        <button class="btn btn-sm" style="font-size:.6875rem;white-space:nowrap" title="Re-apply values from the last scan" id="resetToScanBtn">&#8635; Reset to scan values</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+    <span style="font-size:.8125rem;font-weight:600;color:var(--text-secondary);white-space:nowrap;align-self:center;line-height:1">Vulnerability:</span>
+    <div class="vuln-selector" style="margin:0;display:flex;flex-wrap:wrap;gap:.5rem">
+      <button class="vuln-chip active">A01 — Intercom user_id IDOR</button>
+      <button class="vuln-chip">A02 — Intercom email IDOR</button>
+      <button class="vuln-chip">A03 — Pylon Chat Widget</button>
+    </div>
+  </div>
+
+  <div class="uuid-note" id="uuidNote">
+    &#9888;&#65039; <strong>UUID user_id detected:</strong> While UUIDs prevent sequential ID guessing, the lack of HMAC still allows session hijacking and impersonation if the UUID is leaked through another vector (e.g., logs, referrer headers, or URL parameters).
+  </div>
+
+  <div class="step-tabs" id="stepTabs" style="display:none">
+    <button class="step-tab active">Step 1 — Leak issue_id</button>
+    <button class="step-tab">Step 2 — Access Transcript</button>
+  </div>
+
+  <div class="inspector-grid">
+    <div>
+      <div class="code-panel">
+        <div class="code-panel-header">
+          <span class="code-panel-label">Request</span>
+          <div class="code-tabs">
+            <button class="code-tab req-fmt-tab active">Raw</button>
+            <button class="code-tab req-fmt-tab">cURL</button>
+            <button class="code-tab req-fmt-tab">Python</button>
+          </div>
+        </div>
+        <div class="code-body" id="reqPanel">Loading...</div>
+      </div>
+      <div style="margin-top:.5rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+        <button class="btn" id="sendReqBtn" style="font-size:.8125rem;padding:.45rem 1rem">
+          &#9654; Send Real Request
+        </button>
+        <span style="font-size:.7rem;color:var(--text-muted)">Sends directly to the API — real response below</span>
+        <div id="sendStatus" style="font-size:.75rem;margin-left:auto"></div>
+      </div>
+    </div>
+    <div>
+      <div class="code-panel">
+        <div class="code-panel-header">
+          <span class="code-panel-label" id="respPanelLabel">Response</span>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span id="respStatusBadge" style="font-size:.6875rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;display:none"></span>
+            <div class="code-tabs">
+              <button class="code-tab resp-fmt-tab active" data-fmt="pretty">Pretty</button>
+              <button class="code-tab resp-fmt-tab" data-fmt="raw">Raw</button>
+              <button class="code-tab resp-fmt-tab" data-fmt="chat">Chat View</button>
+            </div>
+          </div>
+        </div>
+        <div class="code-body" id="respPanel">Loading...</div>
+      </div>
+      <div style="margin-top:.5rem;font-size:.6875rem;color:var(--text-muted)">
+        &#9432; Response pane shows simulated PoC data until you click <strong>Send Real Request</strong>. Real responses replace this automatically.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:1rem">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        Vulnerability Summary
+      </div>
+      <div class="panel-body" id="vulnSummary"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ HISTORY PAGE ══════════════════ -->
+<div id="page-history" class="page">
+  <div class="history-toolbar">
+    <div class="section-title" style="margin-bottom:0">Scan History</div>
+    <div class="flex-gap" style="margin-left:auto">
+      <input class="scan-input" id="historySearch" placeholder="Filter by URL..." style="width:16rem"/>
+      <button class="btn btn-danger btn-sm" id="clearHistoryBtn">Clear All</button>
+    </div>
+  </div>
+  <table class="history-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Target URL</th>
+        <th>Vendor</th>
+        <th>CVSS</th>
+        <th>HMAC Status</th>
+        <th>Findings</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="historyBody"></tbody>
+  </table>
+</div>
+
+<!-- ══════════════════ ANALYTICS PAGE ══════════════════ -->
+<div id="page-analytics" class="page">
+  <div class="section-title">Scan Analytics Dashboard</div>
+  <div class="analytics-grid" id="analyticsMetrics"></div>
+  <div id="analyticsCharts"></div>
+</div>
+
+<!-- ══════════════════ SETTINGS PAGE ══════════════════ -->
+<div id="page-settings" class="page">
+  <div class="section-title">Settings</div>
+  <div class="settings-section">
+    <div class="settings-title">Scan Options</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Check Intercom user_id (A01)</div>
+        <div class="setting-desc">Detect IDOR via sequential/UUID user identifiers in messenger widget</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="settingA01" checked><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Check Intercom email (A02)</div>
+        <div class="setting-desc">Detect missing HMAC on email-based conversation retrieval</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="settingA02" checked><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Check Pylon Chat Widget (A03)</div>
+        <div class="setting-desc">Detect unauthorized issue_id lookup and transcript access</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="settingA03" checked><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">UUID user_id note</div>
+        <div class="setting-desc">Show advisory note when UUID is detected instead of sequential ID</div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="settingUuidNote" checked><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-title">Inspector Defaults</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Default request format</div>
+        <div class="setting-desc">Format shown in Inspector request pane on load</div>
+      </div>
+      <select class="setting-select" id="settingReqFmt">
+        <option value="raw">Raw HTTP</option>
+        <option value="curl">cURL</option>
+        <option value="python">Python requests</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Demo user email</div>
+        <div class="setting-desc">Email address used in PoC templates</div>
+      </div>
+      <input class="scan-input" id="settingEmail" value="victim@example.com" style="width:14rem"/>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Demo user_id (Intercom)</div>
+        <div class="setting-desc">Use sequential (85070) or UUID demo value</div>
+      </div>
+      <select class="setting-select" id="settingUserIdType">
+        <option value="sequential">Sequential — 85070 (numeric IDOR)</option>
+        <option value="uuid">UUID — a3f5b291-… (leaked UUID scenario)</option>
+      </select>
+    </div>
+  </div>
+  <div class="settings-section">
+    <div class="settings-title">Data Management</div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Clear all scan history</div>
+        <div class="setting-desc">Permanently removes all saved scans from storage</div>
+      </div>
+      <button class="btn btn-danger btn-sm" id="clearHistoryBtn2">Clear History</button>
+    </div>
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="setting-name">Export raw history (JSON)</div>
+        <div class="setting-desc">Download the raw JSON data for all scans</div>
+      </div>
+      <button class="btn btn-sm" id="exportJsonBtn">Export JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ GUIDE / KNOWLEDGE HUB PAGE ══════════════════ -->
+<div id="page-guide" class="page">
+  <div class="kh">
+
+    <!-- Hero -->
+    <header class="kh-hero">
+      <div class="kh-hero-badge">Knowledge Hub</div>
+      <h1 class="kh-hero-title">Security, explained <span>without the jargon</span></h1>
+      <p class="kh-hero-sub">
+        ChatGuard inspects the live-chat widgets on a website and checks whether private
+        conversations are properly locked. Here is what that means — in plain language.
+      </p>
+    </header>
+
+    <!-- Simplified Security: metaphor cards -->
+    <div class="kh-section-label">The two problems we look for</div>
+    <div class="kh-cards">
+
+      <article class="kh-card">
+        <div class="kh-card-glow kh-glow-red"></div>
+        <div class="kh-icon kh-icon-red" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 40V12l16-6 16 6v28"/>
+            <path d="M8 20h32M8 30h32"/>
+            <path d="M24 6v34"/>
+            <circle cx="32" cy="35" r="6" fill="rgba(255,45,85,.12)"/>
+            <path d="M32 32v3l2 1.5"/>
+          </svg>
+        </div>
+        <h3 class="kh-card-title">Digital Impersonation</h3>
+        <div class="kh-card-tag">Technical name: IDOR</div>
+        <p class="kh-card-body">
+          Imagine a library where your books sit on a <strong>private shelf</strong>. The shelves
+          are simply numbered 1, 2, 3… With no guard at the door, anyone can walk up,
+          <strong>guess your shelf number</strong>, and pull your book straight off it.
+        </p>
+        <p class="kh-card-foot">
+          Online, those “shelf numbers” are user IDs. If the chat system never checks
+          <em>who is asking</em>, a stranger can read another person’s messages just by changing a number.
+        </p>
+      </article>
+
+      <article class="kh-card">
+        <div class="kh-card-glow kh-glow-amber"></div>
+        <div class="kh-icon kh-icon-amber" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="12" width="36" height="26" rx="3"/>
+            <path d="M6 15l18 13L42 15"/>
+            <circle cx="38" cy="13" r="7" fill="rgba(255,170,0,.14)"/>
+            <path d="M35 13l2 2 4-4"/>
+          </svg>
+        </div>
+        <h3 class="kh-card-title">The Missing Seal</h3>
+        <div class="kh-card-tag">Technical name: Missing HMAC</div>
+        <p class="kh-card-body">
+          Sending a message should be like mailing a <strong>secret letter inside a sealed
+          envelope</strong>. The wax seal proves it is really from you and that nobody tampered
+          with it along the way.
+        </p>
+        <p class="kh-card-foot">
+          Many chat widgets ship the letter with <strong>no envelope at all</strong>. ChatGuard
+          checks whether that protective “seal” (a signature called HMAC) is present — or broken.
+        </p>
+      </article>
+
+      <article class="kh-card">
+        <div class="kh-card-glow kh-glow-cyan"></div>
+        <div class="kh-icon kh-icon-cyan" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M24 5l15 6v9c0 11-7 18-15 22-8-4-15-11-15-22v-9l15-6Z"
+                  fill="rgba(0,229,255,.08)"/>
+            <path d="M17 24l5 5 9-10"/>
+          </svg>
+        </div>
+        <h3 class="kh-card-title">Why It Matters</h3>
+        <div class="kh-card-tag">The bottom line</div>
+        <p class="kh-card-body">
+          A single missing check can expose <strong>thousands of private conversations</strong> —
+          and the people running the website often have no idea it is happening.
+        </p>
+        <p class="kh-card-foot">
+          ChatGuard finds these gaps the way an attacker would, so they can be fixed
+          <strong>before</strong> anyone’s data is exposed.
+        </p>
+      </article>
+
+    </div>
+
+    <!-- 3-Step Success Timeline -->
+    <div class="kh-section-label">How ChatGuard works — in three steps</div>
+    <div class="kh-timeline">
+      <div class="kh-step">
+        <div class="kh-step-ring"><span class="kh-step-num">1</span></div>
+        <div class="kh-step-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="5"/>
+            <path d="M16 1v4M16 27v4M1 16h4M27 16h4"/>
+          </svg>
+        </div>
+        <h4 class="kh-step-title">Target</h4>
+        <p class="kh-step-body">You provide a website address. That’s the only thing we need to begin.</p>
+      </div>
+
+      <div class="kh-step-arrow" aria-hidden="true">
+        <svg viewBox="0 0 40 16" width="40" height="16" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 8h33M29 2l6 6-6 6"/>
+        </svg>
+      </div>
+
+      <div class="kh-step">
+        <div class="kh-step-ring"><span class="kh-step-num">2</span></div>
+        <div class="kh-step-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="14" cy="14" r="9"/><path d="M21 21l7 7"/>
+          </svg>
+        </div>
+        <h4 class="kh-step-title">Analyze</h4>
+        <p class="kh-step-body">ChatGuard hunts through the page for the hidden “App IDs” that power the chat widget.</p>
+      </div>
+
+      <div class="kh-step-arrow" aria-hidden="true">
+        <svg viewBox="0 0 40 16" width="40" height="16" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 8h33M29 2l6 6-6 6"/>
+        </svg>
+      </div>
+
+      <div class="kh-step">
+        <div class="kh-step-ring"><span class="kh-step-num">3</span></div>
+        <div class="kh-step-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7" y="14" width="18" height="12" rx="2"/>
+            <path d="M11 14v-3a5 5 0 0 1 10 0v3"/><path d="M16 19v3"/>
+          </svg>
+        </div>
+        <h4 class="kh-step-title">Verify</h4>
+        <p class="kh-step-body">We check whether the “Digital Lock” (HMAC) is actually switched on — or wide open.</p>
+      </div>
+    </div>
+
+    <!-- Impact / Potential Risk -->
+    <div class="kh-impact">
+      <div class="kh-impact-head">
+        <div class="kh-impact-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="24" height="24" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3 2 28h28L16 3Z"/><path d="M16 12v8M16 24h.01"/>
+          </svg>
+        </div>
+        <div>
+          <div class="kh-impact-kicker">Potential Risk</div>
+          <h3 class="kh-impact-title">What’s at stake when these checks are missing</h3>
+        </div>
+      </div>
+      <p class="kh-impact-lead">
+        Without the lock and the seal in place, private conversations become readable by anyone
+        who knows where to look. That commonly includes:
+      </p>
+      <div class="kh-impact-grid">
+        <div class="kh-risk">
+          <span class="kh-risk-ico" aria-hidden="true">✉️</span>
+          <span class="kh-risk-label">Email addresses</span>
+        </div>
+        <div class="kh-risk">
+          <span class="kh-risk-ico" aria-hidden="true">📞</span>
+          <span class="kh-risk-label">Phone numbers</span>
+        </div>
+        <div class="kh-risk">
+          <span class="kh-risk-ico" aria-hidden="true">🔑</span>
+          <span class="kh-risk-label">Account backup codes</span>
+        </div>
+        <div class="kh-risk">
+          <span class="kh-risk-ico" aria-hidden="true">💬</span>
+          <span class="kh-risk-label">Full message history</span>
+        </div>
+      </div>
+      <p class="kh-impact-foot">
+        ChatGuard surfaces these gaps early — turning an invisible, silent exposure into a
+        clear, fixable finding.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════ REPORT MODAL ══════════════════ -->
+<div class="modal-backdrop" id="reportModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Security Findings Report</div>
+      <button class="close-btn" id="closeModalBtn">&#10005;</button>
+    </div>
+    <div class="modal-body" id="reportContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-sm" id="downloadMdBtn">⬇ Download .md</button>
+      <button class="btn btn-sm" title="Print report" id="printReportBtn">🖨 Print</button>
+      <button class="btn btn-sm" id="closeModalBtn2">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CUSTOM ALERT / CONFIRM MODAL ══ -->
+<div class="cg-modal-backdrop" id="cgModalBackdrop">
+  <div class="cg-modal-box" role="dialog" aria-modal="true">
+    <div class="cg-modal-brand">
+      <svg width="20" height="20" viewBox="0 0 100 100" fill="none">
+        <defs>
+          <linearGradient id="cgGradM" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00e5ff"/><stop offset="100%" stop-color="#bc8cff"/>
+          </linearGradient>
+        </defs>
+        <path d="M50 5L85 22.5V55C85 75 50 95 50 95S15 75 15 55V22.5L50 5Z"
+              stroke="url(#cgGradM)" stroke-width="5" fill="rgba(0,229,255,0.07)"/>
+        <rect x="32" y="34" width="36" height="5" rx="2" fill="url(#cgGradM)"/>
+        <rect x="38" y="46" width="24" height="5" rx="2" fill="url(#cgGradM)" opacity=".7"/>
+        <path d="M42 58L50 67L58 58" stroke="url(#cgGradM)" stroke-width="4"
+              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span class="cg-modal-brand-text">ChatGuard</span>
+    </div>
+    <div class="cg-modal-title" id="cgModalTitle">Notice</div>
+    <div class="cg-modal-msg"  id="cgModalMsg"></div>
+    <div class="cg-modal-actions" id="cgModalActions"></div>
+  </div>
+</div>
+
+
+<!-- ══ JS ══ -->
+<script src="js/app.js?v=8"></script>
+<script src="js/events.js?v=5"></script>
+
+</body>
+</html>
